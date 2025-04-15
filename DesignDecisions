@@ -1,0 +1,3 @@
+1. Agent (Player) must be able to tell where the objects on the screen are and have that knowledge.
+Should I give the Player that information upon creation and have it as an attribute that currently gets updated?
+Or have a function pass a parameter for the locations of obstacles

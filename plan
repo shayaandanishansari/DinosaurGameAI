@@ -1,0 +1,33 @@
+Layers:
+1: Solid White background
+2: Clouds
+3: High Score Textbox
+4: Ground
+5: Player + Obstacles
+
+Movements:
+
+Player Movements: 1.1 Jump (with a range of motion) 1.2 Duck (singular motion)
+Birds
+Clouds
+Objects
+Inputs:
+
+Press Space
+Press down key
+Press Pause (P Key)
+Press Reset (R Key)
+Animations:
+
+Player in place
+Birds Flying across
+Highscore
+Collisions:
+
+Player with ground
+Player with objects
+Game States:
+
+Running
+Pause
+Gameover
