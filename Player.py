@@ -1,103 +1,135 @@
+# player.py
 import pygame
 import settings
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, images):
+    def __init__(self, x, y, images_structured):
         super().__init__()
 
-        self.x = x
-        self.y = y
+        self.run_images = images_structured[settings.PLAYER_RUN_IMAGES_INDEX]
+        self.jump_images = images_structured[settings.PLAYER_JUMP_IMAGES_INDEX]
+        self.ducking_images = images_structured[settings.PLAYER_DUCK_IMAGES_INDEX]
+        self.air_image = images_structured[settings.PLAYER_AIR_IMAGE_INDEX][0]
+        self.dead_image = images_structured[settings.PLAYER_DEAD_IMAGE_INDEX][0]
 
-        self.default_position = (x, y)
-
-        self.running_images = images[0]
-        self.jumping_images = images[1]
-        self.ducking_images = images[2]
-
-        self.running = True
         self.jumping = False
         self.ducking = False
+        self._on_ground = True
+        self._playing_jump_anim = False
+        self.is_alive = True
+        self._down_key_held = False
 
-        self.start_jump = 0
-        self.jump_duration = 0
+        self.current_run_index = 0
+        self.current_jump_index = 0
+        self.current_duck_index = 0
+        self.anim_timer = 0
+        self.animation_speed = settings.ANIMATION_SPEED
 
-        self.image = self.running_images[0]
-        print(self.image)
+        self.image = self.run_images[self.current_run_index]
         self.rect = self.image.get_rect()
+        self.ground_y = y
         self.rect.bottomleft = (x, y)
+        self.y_velocity = 0
+        self.gravity = settings.GRAVITY
+        self.jump_power = settings.JUMP_POWER
+        self.jump_cut_factor = settings.JUMP_CUT_FACTOR
+        self.fast_fall_multiplier = getattr(settings, 'FAST_FALL_MULTIPLIER', 3)
 
-        print(self.rect.bottomleft)
+        self.stand_rect_ref = self.run_images[0].get_rect()
+        self.duck_rect_ref = self.ducking_images[0].get_rect()
 
-        self.velocity = 1
-        self.current_image_index = 0
-
-    def input_handling(self):
-        keyboard = pygame.key.get_pressed()
-
-        # 1. JUMPING
-        # Pressed Spacebar
-        if keyboard[pygame.K_SPACE] and not self.jumping:
+    def handle_jump_press(self):
+        if self._on_ground and not self.ducking and self.is_alive:
+            self.y_velocity = self.jump_power
             self.jumping = True
-            self.running = False
-            self.start_jump = pygame.time.get_ticks()
-        # Holding Spacebar
-        elif self.jumping and keyboard[pygame.K_SPACE]:
-            self.jump_duration = pygame.time.get_ticks() - self.start_jump
-        # Left Spacebar or Timeout
-        elif self.jumping and not keyboard[pygame.K_SPACE] or self.jump_duration > settings.max_jump_time:
-            self.jumping = False
-            self.running = False
-            self.jump_duration = 0
+            self._on_ground = False
+            if self.jump_images:
+                self._playing_jump_anim = True
+                self.current_jump_index = 0
 
-        # 2. DUCKING
-        # Pressing Down Key
-        if keyboard[pygame.K_DOWN] and not self.ducking:
+    def handle_jump_release(self):
+        if self.jumping and self.y_velocity < 0:
+            self.y_velocity *= self.jump_cut_factor
+
+    def handle_duck_press(self):
+        self._down_key_held = True
+        if self._on_ground and self.is_alive:
             self.ducking = True
-            self.jumping = False
-            self.running = False
-        # Left Down Key
-        elif not keyboard[pygame.K_DOWN] and self.ducking:
-            self.ducking = False
 
-        # 3. RUNNING
-        if self.rect.bottomleft == self.default_position:
-            self.running = True
+    def handle_duck_release(self):
+        self._down_key_held = False
+        self.ducking = False
 
+    # --- CORRECTED METHOD SIGNATURE ---
+    def apply_physics(self, delta_time): # Now accepts delta_time
+    # --- END CORRECTION ---
+        if not self._on_ground:
+            if self._down_key_held:
+                self.y_velocity += self.gravity * self.fast_fall_multiplier
+            else:
+                self.y_velocity += self.gravity
 
-    def movement(self, dt):
-        # 1. JUMPING UP
-        if self.jumping:
-            self.y -= self.velocity
-        if not self.jumping and self.rect.bottomleft > self.default_position:
-            self.x += self.velocity
-            if self.ducking:
-                self.y += self.velocity * 2
+        self.rect.y += self.y_velocity
 
-        # 2. DUCKING DOWN
+        if self.rect.bottom >= self.ground_y:
+            self.rect.bottom = self.ground_y
+            self.y_velocity = 0
+            if self.jumping:
+                self.jumping = False
+            self._on_ground = True
+            self._playing_jump_anim = False
+        else:
+            self._on_ground = False
 
-        # 2. RUNNING
-        # No special movement only animation
+    def update_animation(self, delta_time):
+        old_bottomleft = self.rect.bottomleft
+        target_image = self.image
 
-    def animation(self, dt):
-        if self.jumping:
-            self.current_image_index = 0
-            self.rect = self.jumping_images[self.current_image_index].get_rect()
-            self.rect.bottomleft = (self.x, self.y)
+        self.anim_timer += delta_time
+        run_anim_this_frame = self.anim_timer >= self.animation_speed
 
-        elif self.ducking:
-            self.rect = self.ducking_images[self.current_image_index].get_rect()
-            self.current_image_index = (self.current_image_index + 1) % len(self.ducking_images)
-            self.rect.bottomleft = (self.x, self.y)
+        if run_anim_this_frame:
+            self.anim_timer %= self.animation_speed
 
-        elif self.running:
-            self.rect = self.running_images[self.current_image_index].get_rect()
-            self.current_image_index = (self.current_image_index + 1) % len(self.running_images)
-            self.rect.bottomleft = self.default_position
+        if not self.is_alive:
+            target_image = self.dead_image
+        elif self.ducking and self._on_ground:
+            if self.ducking_images:
+                if run_anim_this_frame:
+                    self.current_duck_index = (self.current_duck_index + 1) % len(self.ducking_images)
+                target_image = self.ducking_images[self.current_duck_index]
+        elif self.jumping or not self._on_ground:
+            if self._playing_jump_anim and self.jump_images:
+                if run_anim_this_frame:
+                    self.current_jump_index += 1
+                if self.current_jump_index >= len(self.jump_images):
+                    self._playing_jump_anim = False
+                    target_image = self.air_image
+                else:
+                    target_image = self.jump_images[self.current_jump_index]
+            else:
+                target_image = self.air_image
+        else: # Running
+            if self.run_images:
+                if run_anim_this_frame:
+                    self.current_run_index = (self.current_run_index + 1) % len(self.run_images)
+                target_image = self.run_images[self.current_run_index]
 
+        if self.image is not target_image:
+            self.image = target_image
+            new_rect = self.image.get_rect()
+            self.rect.size = new_rect.size
+            self.rect.bottomleft = old_bottomleft
+        elif self.rect.size != self.image.get_rect().size:
+            new_rect = self.image.get_rect()
+            self.rect.size = new_rect.size
+            self.rect.bottomleft = old_bottomleft
 
-    def update(self, dt):
-        self.input_handling()
-        self.movement(dt)
-        self.animation(dt)
+    def die(self):
+        if self.is_alive:
+            self.is_alive = False
 
-        print(f"Running:{self.running}\nJumping:{self.jumping}\nDucking:{self.ducking}\n\n")
+    def update(self, delta_time):
+        if self.is_alive:
+            self.apply_physics(delta_time) # Call with delta_time
+        self.update_animation(delta_time)
