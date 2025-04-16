@@ -132,7 +132,7 @@ class Player(pygame.sprite.Sprite):
         if self.is_alive:
             self.is_alive = False
 
-    def update(self, delta_time):
+    def update(self, delta_time, game_speed):
         if self.is_alive:
             self.apply_physics(delta_time)
         self.update_animation(delta_time)
