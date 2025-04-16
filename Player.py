@@ -1,4 +1,3 @@
-# player.py
 import pygame
 import settings
 
@@ -53,16 +52,18 @@ class Player(pygame.sprite.Sprite):
 
     def handle_duck_press(self):
         self._down_key_held = True
-        if self._on_ground and self.is_alive:
-            self.ducking = True
+        #
+        if self.is_alive:
+             self.ducking = True
+             if self.jumping:
+                  self._playing_jump_anim = False
+        # --- End CHANGE 1 ---
 
     def handle_duck_release(self):
         self._down_key_held = False
         self.ducking = False
 
-    # --- CORRECTED METHOD SIGNATURE ---
-    def apply_physics(self, delta_time): # Now accepts delta_time
-    # --- END CORRECTION ---
+    def apply_physics(self, delta_time):
         if not self._on_ground:
             if self._down_key_held:
                 self.y_velocity += self.gravity * self.fast_fall_multiplier
@@ -93,12 +94,14 @@ class Player(pygame.sprite.Sprite):
 
         if not self.is_alive:
             target_image = self.dead_image
-        elif self.ducking and self._on_ground:
+        # --- CHANGE 2: Check ducking state FIRST, regardless of ground ---
+        elif self.ducking: # Show ducking anim if ducking flag is set
             if self.ducking_images:
                 if run_anim_this_frame:
                     self.current_duck_index = (self.current_duck_index + 1) % len(self.ducking_images)
                 target_image = self.ducking_images[self.current_duck_index]
-        elif self.jumping or not self._on_ground:
+        # --- End CHANGE 2 ---
+        elif self.jumping or not self._on_ground: # Airborne (and NOT ducking)
             if self._playing_jump_anim and self.jump_images:
                 if run_anim_this_frame:
                     self.current_jump_index += 1
@@ -109,7 +112,7 @@ class Player(pygame.sprite.Sprite):
                     target_image = self.jump_images[self.current_jump_index]
             else:
                 target_image = self.air_image
-        else: # Running
+        else: # Running (on ground, not ducking)
             if self.run_images:
                 if run_anim_this_frame:
                     self.current_run_index = (self.current_run_index + 1) % len(self.run_images)
@@ -131,5 +134,5 @@ class Player(pygame.sprite.Sprite):
 
     def update(self, delta_time):
         if self.is_alive:
-            self.apply_physics(delta_time) # Call with delta_time
+            self.apply_physics(delta_time)
         self.update_animation(delta_time)
