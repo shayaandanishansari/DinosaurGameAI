@@ -128,10 +128,9 @@ class Game:
             if self.ground2.rect.right <= 0:
                 self.ground2.rect.left = self.ground1.rect.right
 
-            # --- Obstacle Spawning (Simplified: Only if group empty) ---
+            # Obstacle Spawning (Simplified: Only if group empty)
             if not self.obstacle_group:
                 self.spawn_obstacle()
-            # --- End Simplified Spawning ---
 
             self.cloud_spawn_timer += delta_time
             if self.cloud_spawn_timer >= self.cloud_next_spawn_delay:
